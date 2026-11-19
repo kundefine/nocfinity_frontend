@@ -1,0 +1,47 @@
+steps:
+  # 1. Build the frontend container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=$_NEXT_PUBLIC_API_URL'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nocfinity-repo/nocfinity-frontend:$COMMIT_SHA'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nocfinity-repo/nocfinity-frontend:latest'
+      - '.'
+
+  # 2. Push image to Google Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nocfinity-repo/nocfinity-frontend'
+
+  # 3. Deploy container image to Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'nocfinity-frontend'
+      - '--image'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nocfinity-repo/nocfinity-frontend:$COMMIT_SHA'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+substitutions:
+  _NEXT_PUBLIC_API_URL: 'http://localhost:8000/api/v1'
+  _NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_51UdYHeRG93tkHUqIgRvk0QwVJff4ONjeLB65HxOIbWxKUIBs7qZoCxXUBVGHYHlUNUPLBNZSdrWVPdxyMTLtwmUd00gB6BQR4q'
+
+images:
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nocfinity-repo/nocfinity-frontend:$COMMIT_SHA'
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nocfinity-repo/nocfinity-frontend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

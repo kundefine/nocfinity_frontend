@@ -9,6 +9,7 @@ import { formatApiProduct } from '@/lib/products';
 import { API_BASE_URL } from '@/lib/api';
 
 async function getFeaturedProducts() {
+  'use cache';
   try {
     const res = await fetch(`${API_BASE_URL}/products/featured`, {
       next: { revalidate: 30 },
