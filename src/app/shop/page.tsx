@@ -70,6 +70,8 @@ function ShopContent() {
   const searchQuery = searchParams.get('q') || '';
 
   const [categoriesList, setCategoriesList] = useState(CATEGORIES);
+  const [colorsList, setColorsList] = useState(COLORS);
+  const [sizesList, setSizesList] = useState(SIZES);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedStyle, setSelectedStyle] = useState<string>(initialStyle);
   const [maxPrice, setMaxPrice] = useState<number>(300);
@@ -88,18 +90,45 @@ function ShopContent() {
   const [apiProducts, setApiProducts] = useState<Product[] | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load Categories from API
+  // Load dynamic filter attributes (categories, colors, sizes) from API
   useEffect(() => {
-    fetchApi('/categories').then((res) => {
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-        setCategoriesList(
-          res.data.map((c: any) => ({
-            label: c.name,
-            value: c.slug || String(c.id),
-          }))
-        );
+    fetchApi('/products/filters').then((res) => {
+      if (res.success && res.data) {
+        if (Array.isArray(res.data.categories) && res.data.categories.length > 0) {
+          setCategoriesList(
+            res.data.categories.map((c: any) => ({
+              label: c.name,
+              value: c.slug || String(c.id),
+            }))
+          );
+        }
+        if (Array.isArray(res.data.colors) && res.data.colors.length > 0) {
+          const dynamicColors = res.data.colors.map((c: any) => ({
+            name: c.name,
+            hex: c.hex || '#000000',
+            border: c.hex?.toLowerCase() === '#ffffff' || c.name?.toLowerCase() === 'white',
+          }));
+          const existingNames = new Set(dynamicColors.map((c: any) => c.name.toLowerCase()));
+          const combined = [...dynamicColors, ...COLORS.filter((c) => !existingNames.has(c.name.toLowerCase()))];
+          setColorsList(combined);
+        }
+        if (Array.isArray(res.data.sizes) && res.data.sizes.length > 0) {
+          const uniqueSizes = Array.from(new Set([...res.data.sizes, ...SIZES]));
+          setSizesList(uniqueSizes);
+        }
       }
-    }).catch(() => {});
+    }).catch(() => {
+      fetchApi('/categories').then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setCategoriesList(
+            res.data.map((c: any) => ({
+              label: c.name,
+              value: c.slug || String(c.id),
+            }))
+          );
+        }
+      }).catch(() => {});
+    });
   }, []);
 
   // Reset page when filters change
@@ -274,7 +303,7 @@ function ShopContent() {
           )}
         </div>
         <div className="grid grid-cols-5 gap-3">
-          {COLORS.map((c) => {
+          {colorsList.map((c) => {
             const isSelected = selectedColor === c.name;
             const isLight = c.name === 'White' || c.name === 'Yellow';
             return (
@@ -315,7 +344,7 @@ function ShopContent() {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {SIZES.map((size) => {
+          {sizesList.map((size) => {
             const isSelected = selectedSize === size;
             return (
               <button
