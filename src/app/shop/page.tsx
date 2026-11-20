@@ -75,6 +75,7 @@ function ShopContent() {
   const [maxPrice, setMaxPrice] = useState<number>(300);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
+  const [inStockOnly, setInStockOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>('newest');
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
@@ -104,7 +105,7 @@ function ShopContent() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, sortBy]);
+  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, inStockOnly, sortBy]);
 
   // Load Products from API
   useEffect(() => {
@@ -115,6 +116,7 @@ function ShopContent() {
     if (maxPrice && maxPrice < 300) url += `&max_price=${maxPrice}`;
     if (selectedColor) url += `&color=${encodeURIComponent(selectedColor)}`;
     if (selectedSize) url += `&size=${encodeURIComponent(selectedSize)}`;
+    if (inStockOnly) url += `&in_stock=1`;
     if (sortBy) url += `&sort=${sortBy}`;
 
     setLoading(true);
@@ -135,7 +137,7 @@ function ShopContent() {
       setApiProducts(null);
       setLoading(false);
     });
-  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, sortBy, currentPage]);
+  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, inStockOnly, sortBy, currentPage]);
 
   // Client-side filtering ensures instant response & consistent variant matching
   const displayedProducts = useMemo(() => {
@@ -187,6 +189,12 @@ function ShopContent() {
         if (!hasSize) return false;
       }
 
+      // In-stock availability filter check
+      if (inStockOnly) {
+        const isOutOfStock = p.stock !== undefined && p.stock <= 0;
+        if (isOutOfStock) return false;
+      }
+
       return true;
     }).sort((a, b) => {
       if (sortBy === 'price-low') return a.price - b.price;
@@ -194,7 +202,7 @@ function ShopContent() {
       if (sortBy === 'rating') return b.rating - a.rating;
       return 0;
     });
-  }, [apiProducts, searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, sortBy]);
+  }, [apiProducts, searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, inStockOnly, sortBy]);
 
   const FilterSidebar = (
     <div className="rounded-[20px] border border-black/10 p-6 flex flex-col gap-6 bg-white">
@@ -348,6 +356,26 @@ function ShopContent() {
         ))}
       </div>
 
+      <div className="border-t border-black/10" />
+
+      {/* Availability / In Stock */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between font-bold text-black text-[20px]">
+          <span>Availability</span>
+        </div>
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={inStockOnly}
+            onChange={(e) => setInStockOnly(e.target.checked)}
+            className="size-4.5 rounded-sm accent-black cursor-pointer"
+          />
+          <span className="text-[14px] font-medium text-black/80">
+            In Stock Only <span className="text-black/40 text-xs">(Hide out of stock)</span>
+          </span>
+        </label>
+      </div>
+
       <button
         onClick={() => setMobileFilterOpen(false)}
         className="w-full rounded-full bg-black py-3.5 text-[14px] font-medium text-white transition-opacity hover:opacity-90 mt-2"
@@ -394,7 +422,7 @@ function ShopContent() {
                 </span>
               </div>
               {/* Active Filter Badges */}
-              {(selectedColor || selectedSize || selectedCategory || selectedStyle || searchQuery) && (
+              {(selectedColor || selectedSize || selectedCategory || selectedStyle || inStockOnly || searchQuery) && (
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   {selectedColor && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black">
@@ -415,6 +443,18 @@ function ShopContent() {
                         onClick={() => setSelectedSize('')}
                         className="p-0.5 hover:bg-black/10 rounded-full"
                         aria-label="Clear size filter"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  )}
+                  {inStockOnly && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                      In Stock Only
+                      <button
+                        onClick={() => setInStockOnly(false)}
+                        className="p-0.5 hover:bg-emerald-100 rounded-full"
+                        aria-label="Clear in stock filter"
                       >
                         <X className="size-3" />
                       </button>
@@ -463,6 +503,7 @@ function ShopContent() {
                       setMaxPrice(300);
                       setSelectedColor(null);
                       setSelectedSize('');
+                      setInStockOnly(false);
                       if (searchQuery) router.push('/shop');
                     }}
                     className="text-xs text-red-500 hover:underline font-medium ml-1"
@@ -522,6 +563,7 @@ function ShopContent() {
                   setMaxPrice(300);
                   setSelectedColor(null);
                   setSelectedSize('');
+                  setInStockOnly(false);
                   router.push('/shop');
                 }}
                 className="mt-4 rounded-full bg-black px-6 py-2.5 text-[14px] text-white hover:bg-black/80 transition-colors"

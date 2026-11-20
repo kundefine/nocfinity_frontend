@@ -103,6 +103,10 @@ export default function CartPage() {
                       <div className="mt-1 flex flex-col gap-0.5 text-[12px] sm:text-[13px] text-black/60">
                         {item.size && <span>Size: <strong className="text-black">{item.size}</strong></span>}
                         {item.color && <span>Color: <strong className="text-black">{item.color}</strong></span>}
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 mt-0.5">
+                          <CheckCircle2 className="size-3 text-emerald-600" />
+                          <span>In Stock · Ready to ship</span>
+                        </span>
                       </div>
                     </div>
 

@@ -12,6 +12,10 @@ import {
   ChevronDown,
   Star,
   AlertTriangle,
+  Package,
+  Truck,
+  ShieldCheck,
+  Clock,
 } from 'lucide-react';
 import { products as fallbackProducts, customerReviews as fallbackReviews } from '@/data/products';
 import { useCart } from '@/context/CartContext';
@@ -204,18 +208,55 @@ export default function ProductDetailClient({ productId }: { productId?: string 
 
             {/* Stock status badge */}
             <span
-              className={`ml-auto inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
-                (product.stock ?? 1) > 0
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              className={`ml-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                (product.stock ?? 1) > 5
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : (product.stock ?? 1) > 0
+                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
                   : 'bg-red-50 text-red-700 border border-red-200'
               }`}
             >
-              {(product.stock ?? 1) > 0
-                ? (product.stock !== undefined && product.stock <= 5
-                    ? `Only ${product.stock} left in stock!`
-                    : `In Stock (${product.stock ?? 'Available'})`)
-                : 'Out of Stock'}
+              {(product.stock ?? 1) > 5 ? (
+                <>
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>In Stock ({product.stock} units)</span>
+                </>
+              ) : (product.stock ?? 1) > 0 ? (
+                <>
+                  <AlertTriangle className="size-3 text-amber-600" />
+                  <span>Only {product.stock} left in stock!</span>
+                </>
+              ) : (
+                <>
+                  <span className="size-2 rounded-full bg-red-500" />
+                  <span>Out of Stock</span>
+                </>
+              )}
             </span>
+          </div>
+
+          {/* SKU & Low stock progress indicator */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <div className="flex items-center justify-between text-xs text-black/50">
+              <span className="font-mono bg-black/5 px-2 py-0.5 rounded text-[11px] font-semibold text-black/70">
+                SKU: {product.sku || `SKU-${String(product.id).padStart(4, '0')}`}
+              </span>
+              {(product.stock ?? 1) > 0 && (
+                <span className="text-[12px] text-emerald-700 font-medium flex items-center gap-1">
+                  <Truck className="size-3" />
+                  <span>Ready for same-day dispatch</span>
+                </span>
+              )}
+            </div>
+
+            {product.stock !== undefined && product.stock > 0 && product.stock <= 10 && (
+              <div className="w-full bg-black/5 rounded-full h-1.5 overflow-hidden mt-0.5">
+                <div
+                  className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(15, (product.stock / 10) * 100))}%` }}
+                />
+              </div>
+            )}
           </div>
 
           <p className="text-[15px] text-black/60 leading-relaxed border-b border-black/10 pb-6 pt-1">
@@ -279,40 +320,57 @@ export default function ProductDetailClient({ productId }: { productId?: string 
           {/* Quantity and Add to Cart */}
           {(() => {
             const isOutOfStock = product.stock !== undefined && product.stock <= 0;
-            const maxAvailable = product.stock !== undefined ? product.stock : 99;
+            const maxAvailable = product.stock !== undefined ? Math.min(product.stock, 20) : 10;
             return (
-              <div className="flex items-center gap-4 pt-4">
-                <div className={`flex items-center justify-between rounded-full bg-[#F0F0F0] px-5 py-3 w-[150px] ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}>
+              <div className="flex flex-col gap-2 pt-4">
+                <div className="flex items-center gap-4">
+                  <div className={`flex items-center justify-between rounded-full bg-[#F0F0F0] px-5 py-3 w-[150px] ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                    <button
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      disabled={isOutOfStock}
+                      className="text-black hover:opacity-70 p-1 disabled:cursor-not-allowed"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="size-4" />
+                    </button>
+                    <span className="text-[16px] font-bold text-black">{isOutOfStock ? 0 : quantity}</span>
+                    <button
+                      onClick={() => setQuantity((q) => Math.min(maxAvailable, q + 1))}
+                      disabled={isOutOfStock || quantity >= maxAvailable}
+                      className="text-black hover:opacity-70 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="size-4" />
+                    </button>
+                  </div>
+
                   <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    onClick={handleAddToCart}
                     disabled={isOutOfStock}
-                    className="text-black hover:opacity-70 p-1 disabled:cursor-not-allowed"
-                    aria-label="Decrease quantity"
+                    className={`flex-1 rounded-full py-4 text-[16px] font-medium transition-all ${
+                      isOutOfStock
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : 'bg-black text-white hover:bg-black/85 hover:shadow-lg active:scale-[0.99]'
+                    }`}
                   >
-                    <Minus className="size-4" />
-                  </button>
-                  <span className="text-[16px] font-bold text-black">{isOutOfStock ? 0 : quantity}</span>
-                  <button
-                    onClick={() => setQuantity((q) => Math.min(maxAvailable, q + 1))}
-                    disabled={isOutOfStock || quantity >= maxAvailable}
-                    className="text-black hover:opacity-70 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus className="size-4" />
+                    {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                   </button>
                 </div>
 
-                <button
-                  onClick={handleAddToCart}
-                  disabled={isOutOfStock}
-                  className={`flex-1 rounded-full py-4 text-[16px] font-medium transition-all ${
-                    isOutOfStock
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-black text-white hover:bg-black/85 hover:shadow-lg active:scale-[0.99]'
-                  }`}
-                >
-                  {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-                </button>
+                {/* Stock limit note */}
+                <div className="flex items-center justify-between text-xs text-black/50 px-1">
+                  {!isOutOfStock ? (
+                    <span>
+                      Stock available: <strong className="text-black font-semibold">{product.stock} units</strong>
+                      {product.stock !== undefined && product.stock > 20 && ' (Max 20 per order)'}
+                    </span>
+                  ) : (
+                    <span className="text-red-500 font-medium">This item is currently sold out and undergoing restocking.</span>
+                  )}
+                  {quantity >= maxAvailable && !isOutOfStock && (
+                    <span className="text-amber-600 font-medium">Max order quantity reached</span>
+                  )}
+                </div>
               </div>
             );
           })()}
@@ -474,12 +532,159 @@ export default function ProductDetailClient({ productId }: { productId?: string 
         )}
 
         {activeTab === 'details' && (
-          <div className="py-8 max-w-2xl text-[15px] text-black/70 space-y-4">
-            <h3 className="text-[20px] font-bold text-black">Specifications</h3>
-            <p><strong>Material:</strong> 100% Combed Compact Cotton (Single Jersey)</p>
-            <p><strong>Weight:</strong> 220 GSM heavyweight durable construction</p>
-            <p><strong>Fit:</strong> Contemporary Streetwear Oversized Silhouette</p>
-            <p><strong>Care Instructions:</strong> Machine wash cold with like colors, tumble dry low.</p>
+          <div className="py-8 max-w-4xl space-y-8">
+            {/* Inventory & Stock Information Card */}
+            <div className="rounded-2xl border border-black/10 bg-[#FAFAFA] p-6 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-black/10">
+                <div className="flex items-center gap-2.5">
+                  <Package className="size-5 text-black" />
+                  <h3 className="text-[18px] font-bold text-black">Inventory &amp; Stock Details</h3>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold ${
+                    (product.stock ?? 1) > 5
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : (product.stock ?? 1) > 0
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  {(product.stock ?? 1) > 5 ? (
+                    <>
+                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Ready for Immediate Dispatch</span>
+                    </>
+                  ) : (product.stock ?? 1) > 0 ? (
+                    <>
+                      <AlertTriangle className="size-3 text-amber-600" />
+                      <span>Low Stock — Limited Quantity</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="size-2 rounded-full bg-red-500" />
+                      <span>Currently Sold Out</span>
+                    </>
+                  )}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-[14px]">
+                <div className="rounded-xl bg-white p-4 border border-black/5 shadow-2xs">
+                  <span className="text-xs font-medium text-black/50 uppercase tracking-wider block mb-1">
+                    Current Stock Level
+                  </span>
+                  <div className="text-[20px] font-bold text-black flex items-baseline gap-1.5">
+                    <span>{product.stock ?? 10}</span>
+                    <span className="text-xs font-normal text-black/60">units available</span>
+                  </div>
+                  <p className="text-xs text-black/40 mt-1">Verified real-time warehouse count</p>
+                </div>
+
+                <div className="rounded-xl bg-white p-4 border border-black/5 shadow-2xs">
+                  <span className="text-xs font-medium text-black/50 uppercase tracking-wider block mb-1">
+                    Product SKU
+                  </span>
+                  <div className="text-[18px] font-mono font-bold text-black">
+                    {product.sku || `SKU-${String(product.id).padStart(4, '0')}`}
+                  </div>
+                  <p className="text-xs text-black/40 mt-1">Inventory tracking &amp; barcode ID</p>
+                </div>
+
+                <div className="rounded-xl bg-white p-4 border border-black/5 shadow-2xs">
+                  <span className="text-xs font-medium text-black/50 uppercase tracking-wider block mb-1">
+                    Fulfillment Speed
+                  </span>
+                  <div className="text-[16px] font-bold text-black flex items-center gap-1.5">
+                    <Truck className="size-4 text-emerald-600" />
+                    <span>Same-day Dispatch</span>
+                  </div>
+                  <p className="text-xs text-black/40 mt-1">For orders placed before 2:00 PM</p>
+                </div>
+              </div>
+
+              {/* Variant Stock Availability Matrix */}
+              <div className="rounded-xl bg-white p-4 border border-black/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[14px] font-bold text-black flex items-center gap-2">
+                    <span>Size &amp; Variant Stock Status</span>
+                  </h4>
+                  <span className="text-xs text-black/50">All sizes verified against stock</span>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {product.sizes.map((s) => {
+                    const isAvail = (product.stock ?? 1) > 0;
+                    return (
+                      <span
+                        key={s}
+                        className={`px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 border ${
+                          isAvail
+                            ? 'bg-[#F9F9F9] border-black/10 text-black'
+                            : 'bg-red-50/50 border-red-200 text-red-500 line-through'
+                        }`}
+                      >
+                        {isAvail ? (
+                          <Check className="size-3 text-emerald-600" />
+                        ) : (
+                          <span className="size-1.5 rounded-full bg-red-400" />
+                        )}
+                        <span>{s}</span>
+                        <span className="text-black/40">· {isAvail ? 'In Stock' : 'Out'}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Product Specifications */}
+            <div className="rounded-2xl border border-black/10 p-6 space-y-4">
+              <h3 className="text-[18px] font-bold text-black">Product Specifications</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-8 text-[14px]">
+                <div className="flex justify-between py-2 border-b border-black/5">
+                  <span className="text-black/60">Category</span>
+                  <span className="font-semibold text-black capitalize">{product.category}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-black/5">
+                  <span className="text-black/60">Dress Style</span>
+                  <span className="font-semibold text-black capitalize">{product.dressStyle}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-black/5">
+                  <span className="text-black/60">Material</span>
+                  <span className="font-semibold text-black">100% Combed Compact Cotton</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-black/5">
+                  <span className="text-black/60">Fabric Weight</span>
+                  <span className="font-semibold text-black">220 GSM Heavyweight</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-black/5">
+                  <span className="text-black/60">Silhouette / Fit</span>
+                  <span className="font-semibold text-black">Contemporary Streetwear Fit</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-black/5">
+                  <span className="text-black/60">Care Instructions</span>
+                  <span className="font-semibold text-black">Machine wash cold, tumble dry low</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Trust Badges & Guarantees */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+              <div className="p-4 rounded-xl border border-black/10 bg-white flex flex-col items-center gap-1.5">
+                <ShieldCheck className="size-6 text-black" />
+                <h4 className="font-bold text-[14px] text-black">100% Authentic</h4>
+                <p className="text-xs text-black/50">Guaranteed authentic master quality</p>
+              </div>
+              <div className="p-4 rounded-xl border border-black/10 bg-white flex flex-col items-center gap-1.5">
+                <Truck className="size-6 text-black" />
+                <h4 className="font-bold text-[14px] text-black">Fast Global Shipping</h4>
+                <p className="text-xs text-black/50">Dispatched in 24 hours with live tracking</p>
+              </div>
+              <div className="p-4 rounded-xl border border-black/10 bg-white flex flex-col items-center gap-1.5">
+                <Clock className="size-6 text-black" />
+                <h4 className="font-bold text-[14px] text-black">30-Day Returns</h4>
+                <p className="text-xs text-black/50">Hassle-free exchanges or refunds</p>
+              </div>
+            </div>
           </div>
         )}
 

@@ -7,6 +7,9 @@ export interface Product {
   originalPrice?: number;
   discountPercent?: number;
   stock?: number;
+  sku?: string;
+  inStock?: boolean;
+  stockStatus?: 'in_stock' | 'low_stock' | 'out_of_stock';
   rating: number;
   reviewCount: number;
   image: string;

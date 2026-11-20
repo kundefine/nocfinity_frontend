@@ -39,6 +39,10 @@ export function formatApiProduct(item: any): Product {
     formattedSizes = item.sizes;
   }
 
+  const stockQty = item.stock !== undefined ? Number(item.stock) : 10;
+  const inStock = item.in_stock !== undefined ? Boolean(item.in_stock) : stockQty > 0;
+  const stockStatus = item.stock_status || (stockQty <= 0 ? 'out_of_stock' : stockQty <= 5 ? 'low_stock' : 'in_stock');
+
   return {
     id: String(item.id),
     name: item.name || 'Unnamed Product',
@@ -47,7 +51,10 @@ export function formatApiProduct(item: any): Product {
     price: currentPrice,
     originalPrice: origPrice,
     discountPercent: discountPct,
-    stock: item.stock !== undefined ? Number(item.stock) : 10,
+    stock: stockQty,
+    sku: item.sku || `SKU-${String(item.id).padStart(4, '0')}`,
+    inStock,
+    stockStatus,
     rating: Number(item.average_rating || 4.5),
     reviewCount: Number(item.reviews_count || 15),
     image: primaryImg,
