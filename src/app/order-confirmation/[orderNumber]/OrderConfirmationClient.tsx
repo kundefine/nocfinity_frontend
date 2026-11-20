@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle2, Package, MapPin, ArrowRight, ShoppingBag, CreditCard } from 'lucide-react';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getImageUrl } from '@/lib/api';
 
 export default function OrderConfirmationClient({ orderNumber }: { orderNumber: string }) {
   const [order, setOrder] = useState<any>(null);
@@ -109,7 +109,7 @@ export default function OrderConfirmationClient({ orderNumber }: { orderNumber: 
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 bg-gray-100 rounded-2xl overflow-hidden relative shrink-0">
                     <Image
-                      src={item.product?.images?.[0]?.image_url || '/figma/imgImage7_96f1301c.png'}
+                      src={getImageUrl(item.product?.images?.[0]?.image_url || '/figma/imgImage7_96f1301c.png')}
                       alt={item.product_name}
                       fill
                       className="object-cover"

@@ -1,5 +1,6 @@
 import { Product } from '@/types';
 import { products as fallbackProducts } from '@/data/products';
+import { getImageUrl } from '@/lib/api';
 
 export function formatApiProduct(item: any): Product {
   if (!item) return fallbackProducts[0];
@@ -16,8 +17,8 @@ export function formatApiProduct(item: any): Product {
 
   if (item.images && Array.isArray(item.images) && item.images.length > 0) {
     const primary = item.images.find((img: any) => img.is_primary) || item.images[0];
-    primaryImg = primary.image_url;
-    thumbs = item.images.map((img: any) => img.image_url);
+    primaryImg = getImageUrl(primary.image_url);
+    thumbs = item.images.map((img: any) => getImageUrl(img.image_url));
   }
 
   // Format colors

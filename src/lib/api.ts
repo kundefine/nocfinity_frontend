@@ -1,4 +1,32 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+export const API_BASE_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+export function getImageUrl(path?: string | null): string {
+  if (!path || typeof path !== 'string' || path.trim() === '') {
+    return '/figma/imgImage7_96f1301c.png';
+  }
+
+  const trimmed = path.trim();
+
+  // Full URLs (http, https) or data URIs or blob URIs
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed;
+  }
+
+  // Uploaded images on the backend
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${API_BASE_ORIGIN}${cleanPath}`;
+  }
+
+  // Frontend static assets (e.g. /figma/...)
+  return trimmed;
+}
 
 export interface FetchApiOptions extends RequestInit {
   authType?: 'customer' | 'admin';
@@ -40,6 +68,9 @@ export async function fetchApi<T = any>(
     });
 
     const json = await res.json();
+    if (typeof json.success === 'undefined') {
+      json.success = res.ok;
+    }
     return json;
   } catch (error: any) {
     return {

@@ -16,7 +16,7 @@ import {
   Upload,
   Loader2,
 } from 'lucide-react';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getImageUrl } from '@/lib/api';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 
 const PRESET_COLORS = [
@@ -202,56 +202,64 @@ export default function AdminProductsPage() {
     setModalOpen(true);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setFormError('Image file size must be less than 5MB.');
+      e.target.value = '';
+      return;
+    }
 
     setUploadingImage(true);
     setFormError(null);
 
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-      const res = await fetchApi<any>('/admin/products/upload', {
-        method: 'POST',
-        body: formData,
-        authType: 'admin',
-      });
-
-      if (res.success && res.data?.url) {
-        setImagesList((prev) => [
-          ...prev.filter((img) => img.image_url.trim() !== ''),
-          { image_url: res.data.url, is_primary: prev.length === 0 || !prev.some((i) => i.is_primary) },
-        ]);
-      } else {
-        // Fallback: convert to base64 Data URL so user can preview & save immediately
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            setImagesList((prev) => [
-              ...prev.filter((img) => img.image_url.trim() !== ''),
-              { image_url: reader.result as string, is_primary: prev.length === 0 || !prev.some((i) => i.is_primary) },
-            ]);
-          }
-        };
-        reader.readAsDataURL(file);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      if (!dataUrl) {
+        setUploadingImage(false);
+        return;
       }
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setImagesList((prev) => [
-            ...prev.filter((img) => img.image_url.trim() !== ''),
-            { image_url: reader.result as string, is_primary: prev.length === 0 || !prev.some((i) => i.is_primary) },
-          ]);
+
+      // Add local preview immediately so the user sees it without waiting
+      setImagesList((prev) => [
+        ...prev.filter((img) => img.image_url.trim() !== '' && img.image_url !== '/figma/imgImage7_8ad0bca2.png'),
+        { image_url: dataUrl, is_primary: prev.length === 0 || !prev.some((i) => i.is_primary) },
+      ]);
+
+      // Upload to backend API in parallel
+      const formData = new FormData();
+      formData.append('image', file);
+
+      try {
+        const res = await fetchApi<any>('/admin/products/upload', {
+          method: 'POST',
+          body: formData,
+          authType: 'admin',
+        });
+
+        if (res.success && res.data?.url) {
+          const finalUrl = res.data.url;
+          setImagesList((prev) =>
+            prev.map((item) => (item.image_url === dataUrl ? { ...item, image_url: finalUrl } : item))
+          );
         }
-      };
-      reader.readAsDataURL(file);
-    } finally {
+      } catch (err) {
+        console.warn('Backend upload fell back to local dataUrl:', err);
+      } finally {
+        setUploadingImage(false);
+      }
+    };
+
+    reader.onerror = () => {
       setUploadingImage(false);
-      e.target.value = '';
-    }
+      setFormError('Failed to read image file from disk.');
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -406,7 +414,7 @@ export default function AdminProductsPage() {
                         <div className="flex items-center gap-3">
                           <div className="size-12 rounded-lg bg-[#F0EEED] p-1 flex items-center justify-center shrink-0">
                             {p.images?.[0]?.image_url ? (
-                              <img src={p.images[0].image_url} alt="" className="size-full object-contain" />
+                              <img src={getImageUrl(p.images[0].image_url)} alt="" className="size-full object-contain" />
                             ) : (
                               <Package className="size-6 text-black/30" />
                             )}
@@ -870,11 +878,11 @@ export default function AdminProductsPage() {
                       <div className="relative size-12 rounded-lg bg-[#F0EEED] overflow-hidden shrink-0 border border-black/10 flex items-center justify-center">
                         {img.image_url ? (
                           <img
-                            src={img.image_url}
+                            src={getImageUrl(img.image_url)}
                             alt="preview"
                             className="size-full object-contain p-0.5"
                             onError={(e) => {
-                              (e.target as any).style.display = 'none';
+                              (e.target as HTMLImageElement).src = '/figma/imgImage7_8ad0bca2.png';
                             }}
                           />
                         ) : (
@@ -882,17 +890,27 @@ export default function AdminProductsPage() {
                         )}
                       </div>
 
-                      <input
-                        type="text"
-                        value={img.image_url}
-                        onChange={(e) => {
-                          const updated = [...imagesList];
-                          updated[idx].image_url = e.target.value;
-                          setImagesList(updated);
-                        }}
-                        placeholder="/figma/imgImage7_8ad0bca2.png or https://..."
-                        className="flex-1 rounded-xl border border-black/10 bg-white py-2 px-3 text-[12px] text-black outline-none font-mono"
-                      />
+                      {img.image_url.startsWith('data:') ? (
+                        <div className="flex-1 flex items-center justify-between px-3 py-2 rounded-xl border border-black/10 bg-emerald-50/60 text-[12px]">
+                          <div className="flex items-center gap-2">
+                            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="font-semibold text-emerald-800">Uploaded from device</span>
+                          </div>
+                          <span className="text-[11px] text-emerald-600 font-medium">Ready to save</span>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={img.image_url}
+                          onChange={(e) => {
+                            const updated = [...imagesList];
+                            updated[idx].image_url = e.target.value;
+                            setImagesList(updated);
+                          }}
+                          placeholder="/figma/imgImage7_8ad0bca2.png or https://..."
+                          className="flex-1 rounded-xl border border-black/10 bg-white py-2 px-3 text-[12px] text-black outline-none font-mono"
+                        />
+                      )}
 
                       <button
                         type="button"

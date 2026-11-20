@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Search, Eye, X, CheckCircle, Clock, Truck, Ban } from 'lucide-react';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getImageUrl } from '@/lib/api';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 
 interface OrderItem {
@@ -289,7 +289,7 @@ export default function AdminOrdersPage() {
                     <div className="flex items-center gap-3">
                       <div className="size-10 rounded-lg bg-[#F0EEED] p-1 flex items-center justify-center shrink-0">
                         {item.product?.images?.[0]?.image_url ? (
-                          <img src={item.product.images[0].image_url} alt="" className="size-full object-contain" />
+                          <img src={getImageUrl(item.product.images[0].image_url)} alt="" className="size-full object-contain" />
                         ) : (
                           <ShoppingBag className="size-5 text-black/30" />
                         )}

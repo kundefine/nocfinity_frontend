@@ -16,7 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useCustomerAuth } from '@/context/CustomerAuthContext';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getImageUrl } from '@/lib/api';
 
 interface OrderItem {
   id: number;
@@ -182,7 +182,7 @@ export default function CustomerOrdersPage() {
                 {/* Items List */}
                 <div className="space-y-4">
                   {order.items?.map((item) => {
-                    const primaryImg = item.product?.images?.[0]?.image_url || '/figma/imgImage8_30fc2006.png';
+                    const primaryImg = getImageUrl(item.product?.images?.[0]?.image_url || '/figma/imgImage8_30fc2006.png');
 
                     return (
                       <div key={item.id} className="flex items-center gap-4 sm:gap-6">
