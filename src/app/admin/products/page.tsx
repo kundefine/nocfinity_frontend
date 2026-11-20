@@ -13,9 +13,38 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageIcon,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { useAdminAuth } from '@/context/AdminAuthContext';
+
+const PRESET_COLORS = [
+  { name: 'Black', hex: '#000000' },
+  { name: 'White', hex: '#FFFFFF' },
+  { name: 'Brown', hex: '#4F4631' },
+  { name: 'Navy', hex: '#223843' },
+  { name: 'Blue', hex: '#063AF5' },
+  { name: 'Green', hex: '#00C12B' },
+  { name: 'Red', hex: '#F50606' },
+  { name: 'Yellow', hex: '#F5DD06' },
+  { name: 'Orange', hex: '#F57906' },
+  { name: 'Purple', hex: '#7D06F5' },
+  { name: 'Pink', hex: '#F506A4' },
+  { name: 'Gray', hex: '#808080' },
+];
+
+const PRESET_SIZES = [
+  'XX-Small',
+  'X-Small',
+  'Small',
+  'Medium',
+  'Large',
+  'X-Large',
+  '2X-Large',
+  '3X-Large',
+  '4X-Large',
+];
 
 interface ProductItem {
   id: number;
@@ -28,6 +57,8 @@ interface ProductItem {
   category?: { name: string };
   dress_style: string;
   is_active: boolean;
+  colors?: { name: string; hex: string }[];
+  sizes?: string[];
   images: { id: number; image_url: string; is_primary: boolean }[];
 }
 
@@ -57,6 +88,12 @@ export default function AdminProductsPage() {
   const [categoryId, setCategoryId] = useState('');
   const [dressStyle, setDressStyle] = useState('casual');
   const [isActive, setIsActive] = useState(true);
+  const [colors, setColors] = useState<{ name: string; hex: string }[]>([]);
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [customColorName, setCustomColorName] = useState('');
+  const [customColorHex, setCustomColorHex] = useState('#000000');
+  const [customSize, setCustomSize] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [imagesList, setImagesList] = useState<{ image_url: string; is_primary: boolean }[]>([
     { image_url: '', is_primary: true }
   ]);
@@ -113,6 +150,15 @@ export default function AdminProductsPage() {
     setStock('25');
     setDressStyle('casual');
     setIsActive(true);
+    setColors([
+      { name: 'Brown', hex: '#4F4631' },
+      { name: 'Green', hex: '#314F4A' },
+      { name: 'Navy', hex: '#223843' },
+    ]);
+    setSizes(['Small', 'Medium', 'Large', 'X-Large']);
+    setCustomColorName('');
+    setCustomColorHex('#000000');
+    setCustomSize('');
     setImagesList([
       { image_url: '/figma/imgImage7_8ad0bca2.png', is_primary: true },
     ]);
@@ -130,6 +176,23 @@ export default function AdminProductsPage() {
     setCategoryId(String(p.category_id));
     setDressStyle(p.dress_style || 'casual');
     setIsActive(p.is_active);
+
+    if (p.colors && Array.isArray(p.colors) && p.colors.length > 0) {
+      setColors(p.colors.map((c: any) => typeof c === 'string' ? { name: c, hex: '#000000' } : { name: c.name || 'Color', hex: c.hex || '#000000' }));
+    } else {
+      setColors([{ name: 'Black', hex: '#000000' }]);
+    }
+
+    if (p.sizes && Array.isArray(p.sizes) && p.sizes.length > 0) {
+      setSizes(p.sizes);
+    } else {
+      setSizes(['Small', 'Medium', 'Large', 'X-Large']);
+    }
+
+    setCustomColorName('');
+    setCustomColorHex('#000000');
+    setCustomSize('');
+
     if (p.images && p.images.length > 0) {
       setImagesList(p.images.map((img) => ({ image_url: img.image_url, is_primary: !!img.is_primary })));
     } else {
@@ -137,6 +200,58 @@ export default function AdminProductsPage() {
     }
     setFormError(null);
     setModalOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    setFormError(null);
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await fetchApi<any>('/admin/products/upload', {
+        method: 'POST',
+        body: formData,
+        authType: 'admin',
+      });
+
+      if (res.success && res.data?.url) {
+        setImagesList((prev) => [
+          ...prev.filter((img) => img.image_url.trim() !== ''),
+          { image_url: res.data.url, is_primary: prev.length === 0 || !prev.some((i) => i.is_primary) },
+        ]);
+      } else {
+        // Fallback: convert to base64 Data URL so user can preview & save immediately
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setImagesList((prev) => [
+              ...prev.filter((img) => img.image_url.trim() !== ''),
+              { image_url: reader.result as string, is_primary: prev.length === 0 || !prev.some((i) => i.is_primary) },
+            ]);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImagesList((prev) => [
+            ...prev.filter((img) => img.image_url.trim() !== ''),
+            { image_url: reader.result as string, is_primary: prev.length === 0 || !prev.some((i) => i.is_primary) },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploadingImage(false);
+      e.target.value = '';
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -160,6 +275,8 @@ export default function AdminProductsPage() {
       category_id: Number(categoryId),
       dress_style: dressStyle,
       is_active: isActive,
+      colors: colors.length > 0 ? colors : undefined,
+      sizes: sizes.length > 0 ? sizes : undefined,
       images: validImages.length > 0 ? validImages : undefined,
     };
 
@@ -406,7 +523,7 @@ export default function AdminProductsPage() {
       {/* Create / Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 md:p-8 shadow-2xl">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 md:p-8 shadow-2xl">
             <div className="flex items-center justify-between pb-4 border-b border-black/10">
               <h3 className="text-[20px] font-bold text-black font-integral">
                 {editingProduct ? 'Edit Product' : 'Create Product'}
@@ -523,23 +640,248 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              {/* Multiple Images Manager */}
-              <div className="space-y-2">
+              {/* Product Color Variants */}
+              <div className="space-y-3 pt-2 border-t border-black/10">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[13px] font-bold text-black">Product Images</label>
+                  <label className="block text-[13px] font-bold text-black">
+                    Color Variants <span className="text-black/50 font-normal">({colors.length} selected)</span>
+                  </label>
+                  <span className="text-xs text-black/40">Click preset to toggle</span>
+                </div>
+
+                {/* Preset Color Swatches */}
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_COLORS.map((pc) => {
+                    const isSelected = colors.some((c) => c.name.toLowerCase() === pc.name.toLowerCase());
+                    const isLight = pc.name === 'White' || pc.name === 'Yellow';
+                    return (
+                      <button
+                        key={pc.name}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setColors(colors.filter((c) => c.name.toLowerCase() !== pc.name.toLowerCase()));
+                          } else {
+                            setColors([...colors, { name: pc.name, hex: pc.hex }]);
+                          }
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all border ${
+                          isSelected
+                            ? 'bg-black text-white border-black shadow-xs scale-105'
+                            : 'bg-white text-black/70 border-black/15 hover:border-black/40'
+                        }`}
+                      >
+                        <span
+                          className={`size-3 rounded-full inline-block shrink-0 ${
+                            isLight ? 'border border-black/30' : ''
+                          }`}
+                          style={{ backgroundColor: pc.hex }}
+                        />
+                        <span>{pc.name}</span>
+                        {isSelected && <Check className="size-3" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Color Input */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="color"
+                    value={customColorHex}
+                    onChange={(e) => setCustomColorHex(e.target.value)}
+                    className="size-8 rounded-lg cursor-pointer border border-black/20 p-0.5 bg-white shrink-0"
+                    title="Choose color hex"
+                  />
+                  <input
+                    type="text"
+                    value={customColorName}
+                    onChange={(e) => setCustomColorName(e.target.value)}
+                    placeholder="Custom color name (e.g. Lavender, Olive)..."
+                    className="flex-1 rounded-xl border border-black/10 bg-[#F9F9F9] py-1.5 px-3 text-[13px] text-black outline-none"
+                  />
                   <button
                     type="button"
-                    onClick={() => setImagesList([...imagesList, { image_url: '', is_primary: false }])}
-                    className="text-xs font-bold text-black flex items-center gap-1 hover:underline"
+                    onClick={() => {
+                      if (!customColorName.trim()) return;
+                      const name = customColorName.trim();
+                      if (!colors.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+                        setColors([...colors, { name, hex: customColorHex }]);
+                        setCustomColorName('');
+                      }
+                    }}
+                    className="rounded-xl bg-black/10 px-3 py-1.5 text-xs font-bold text-black hover:bg-black hover:text-white transition-colors"
                   >
-                    <Plus className="size-3" />
-                    <span>Add Image</span>
+                    + Add Color
                   </button>
                 </div>
 
-                <div className="space-y-2">
+                {/* Active Colors List */}
+                {colors.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {colors.map((c, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/5 text-xs font-medium text-black"
+                      >
+                        <span
+                          className="size-2.5 rounded-full border border-black/20 inline-block"
+                          style={{ backgroundColor: c.hex }}
+                        />
+                        <span>{c.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setColors(colors.filter((_, idx) => idx !== i))}
+                          className="hover:text-red-500 p-0.5"
+                          title="Remove color"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Product Size Variants */}
+              <div className="space-y-3 pt-2 border-t border-black/10">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[13px] font-bold text-black">
+                    Size Variants <span className="text-black/50 font-normal">({sizes.length} selected)</span>
+                  </label>
+                  <span className="text-xs text-black/40">Click preset to toggle</span>
+                </div>
+
+                {/* Preset Sizes */}
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_SIZES.map((sz) => {
+                    const isSelected = sizes.includes(sz);
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSizes(sizes.filter((s) => s !== sz));
+                          } else {
+                            setSizes([...sizes, sz]);
+                          }
+                        }}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+                          isSelected
+                            ? 'bg-black text-white border-black shadow-xs scale-105'
+                            : 'bg-white text-black/70 border-black/15 hover:border-black/40'
+                        }`}
+                      >
+                        <span>{sz}</span>
+                        {isSelected && <span className="ml-1 text-[10px]">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Size Input */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={customSize}
+                    onChange={(e) => setCustomSize(e.target.value)}
+                    placeholder="Custom size (e.g. 32W 34L, One Size, 42)..."
+                    className="flex-1 rounded-xl border border-black/10 bg-[#F9F9F9] py-1.5 px-3 text-[13px] text-black outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!customSize.trim()) return;
+                      const s = customSize.trim();
+                      if (!sizes.includes(s)) {
+                        setSizes([...sizes, s]);
+                        setCustomSize('');
+                      }
+                    }}
+                    className="rounded-xl bg-black/10 px-3 py-1.5 text-xs font-bold text-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    + Add Size
+                  </button>
+                </div>
+
+                {/* Active Sizes List */}
+                {sizes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {sizes.map((s, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/5 text-xs font-medium text-black"
+                      >
+                        <span>{s}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSizes(sizes.filter((_, idx) => idx !== i))}
+                          className="hover:text-red-500 p-0.5"
+                          title="Remove size"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Multiple Images Manager with Device Upload */}
+              <div className="space-y-3 pt-2 border-t border-black/10">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <label className="block text-[13px] font-bold text-black">Product Images</label>
+                    <p className="text-[11px] text-black/50">Upload from computer or enter image links</p>
+                  </div>
+
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-black px-3.5 py-1.5 text-xs font-bold text-white hover:bg-black/85 shadow-2xs transition-all">
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="size-3.5" />
+                        <span>Upload from Computer</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-2.5">
                   {imagesList.map((img, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-3 p-2 rounded-xl border transition-all ${
+                        img.is_primary ? 'border-black bg-black/[0.02]' : 'border-black/10 bg-[#FBFBFB]'
+                      }`}
+                    >
+                      {/* Image Thumbnail Preview */}
+                      <div className="relative size-12 rounded-lg bg-[#F0EEED] overflow-hidden shrink-0 border border-black/10 flex items-center justify-center">
+                        {img.image_url ? (
+                          <img
+                            src={img.image_url}
+                            alt="preview"
+                            className="size-full object-contain p-0.5"
+                            onError={(e) => {
+                              (e.target as any).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <ImageIcon className="size-5 text-black/30" />
+                        )}
+                      </div>
+
                       <input
                         type="text"
                         value={img.image_url}
@@ -549,7 +891,7 @@ export default function AdminProductsPage() {
                           setImagesList(updated);
                         }}
                         placeholder="/figma/imgImage7_8ad0bca2.png or https://..."
-                        className="flex-1 rounded-xl border border-black/10 bg-[#F9F9F9] py-2 px-3 text-[12px] text-black outline-none font-mono"
+                        className="flex-1 rounded-xl border border-black/10 bg-white py-2 px-3 text-[12px] text-black outline-none font-mono"
                       />
 
                       <button
@@ -561,12 +903,12 @@ export default function AdminProductsPage() {
                           }));
                           setImagesList(updated);
                         }}
-                        className={`px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors ${
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-colors shrink-0 ${
                           img.is_primary
                             ? 'bg-black text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            : 'bg-black/5 text-black/60 hover:bg-black/10 hover:text-black'
                         }`}
-                        title="Set as Primary Display Image"
+                        title="Set as Main Display Image"
                       >
                         {img.is_primary ? 'Primary' : 'Make Primary'}
                       </button>
@@ -581,13 +923,23 @@ export default function AdminProductsPage() {
                             }
                             setImagesList(updated);
                           }}
-                          className="p-1.5 text-black/40 hover:text-red-500 rounded-lg hover:bg-red-50"
+                          className="p-1.5 text-black/40 hover:text-red-500 rounded-lg hover:bg-red-50 shrink-0"
+                          title="Remove image"
                         >
                           <Trash2 className="size-4" />
                         </button>
                       )}
                     </div>
                   ))}
+
+                  <button
+                    type="button"
+                    onClick={() => setImagesList([...imagesList, { image_url: '', is_primary: false }])}
+                    className="text-xs font-bold text-black/60 hover:text-black flex items-center gap-1 pt-1"
+                  >
+                    <Plus className="size-3" />
+                    <span>Add Another Image Link</span>
+                  </button>
                 </div>
               </div>
 
