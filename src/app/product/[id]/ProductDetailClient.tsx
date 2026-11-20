@@ -224,19 +224,27 @@ export default function ProductDetailClient({ productId }: { productId?: string 
 
           {/* Select Colors */}
           <div className="flex flex-col gap-3 py-2 border-b border-black/10 pb-6">
-            <span className="text-[14px] text-black/60">Select Colors</span>
+            <span className="text-[14px] text-black/60">
+              Select Colors: <strong className="text-black font-semibold">{selectedColor}</strong>
+            </span>
             <div className="flex items-center gap-4">
               {product.colors.map((color) => {
                 const isSelected = selectedColor === color.name;
+                const isLight = color.hex.toLowerCase() === '#ffffff' || color.hex.toLowerCase() === '#fff';
                 return (
                   <button
                     key={color.name}
                     onClick={() => setSelectedColor(color.name)}
                     style={{ backgroundColor: color.hex }}
-                    className="relative size-10 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-xs"
+                    className={`relative size-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-xs ${
+                      isSelected ? 'ring-2 ring-offset-2 ring-black scale-105' : 'hover:opacity-90'
+                    } ${isLight ? 'border border-black/20' : ''}`}
                     aria-label={color.name}
+                    title={color.name}
                   >
-                    {isSelected && <Check className="size-4 text-white" />}
+                    {isSelected && (
+                      <Check className={`size-4 ${isLight ? 'text-black' : 'text-white'}`} />
+                    )}
                   </button>
                 );
               })}
@@ -245,7 +253,9 @@ export default function ProductDetailClient({ productId }: { productId?: string 
 
           {/* Choose Size */}
           <div className="flex flex-col gap-3 py-2 border-b border-black/10 pb-6">
-            <span className="text-[14px] text-black/60">Choose Size</span>
+            <span className="text-[14px] text-black/60">
+              Choose Size: <strong className="text-black font-semibold">{selectedSize}</strong>
+            </span>
             <div className="flex flex-wrap gap-3">
               {product.sizes.map((size) => {
                 const isSelected = selectedSize === size;
@@ -255,7 +265,7 @@ export default function ProductDetailClient({ productId }: { productId?: string 
                     onClick={() => setSelectedSize(size)}
                     className={`rounded-full px-6 py-2.5 text-[14px] font-medium transition-all ${
                       isSelected
-                        ? 'bg-black text-white'
+                        ? 'bg-black text-white shadow-sm scale-105'
                         : 'bg-[#F0F0F0] text-black/60 hover:bg-black/10 hover:text-black'
                     }`}
                   >

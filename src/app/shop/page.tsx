@@ -29,6 +29,8 @@ const CATEGORIES = [
 ];
 
 const COLORS = [
+  { name: 'Brown', hex: '#4F4631' },
+  { name: 'Navy', hex: '#223843' },
   { name: 'Green', hex: '#00C12B' },
   { name: 'Red', hex: '#F50606' },
   { name: 'Yellow', hex: '#F5DD06' },
@@ -102,7 +104,7 @@ function ShopContent() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, sortBy]);
+  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, sortBy]);
 
   // Load Products from API
   useEffect(() => {
@@ -111,6 +113,8 @@ function ShopContent() {
     if (selectedCategory) url += `&category=${encodeURIComponent(selectedCategory)}`;
     if (selectedStyle) url += `&style=${encodeURIComponent(selectedStyle)}`;
     if (maxPrice && maxPrice < 300) url += `&max_price=${maxPrice}`;
+    if (selectedColor) url += `&color=${encodeURIComponent(selectedColor)}`;
+    if (selectedSize) url += `&size=${encodeURIComponent(selectedSize)}`;
     if (sortBy) url += `&sort=${sortBy}`;
 
     setLoading(true);
@@ -131,26 +135,58 @@ function ShopContent() {
       setApiProducts(null);
       setLoading(false);
     });
-  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, sortBy, currentPage]);
+  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, sortBy, currentPage]);
 
-  // Fallback products calculation if backend is not reached
-  const localFilteredProducts = useMemo(() => {
-    return fallbackProducts.filter((p) => {
-      if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
+  // Client-side filtering ensures instant response & consistent variant matching
+  const displayedProducts = useMemo(() => {
+    const sourceList = apiProducts !== null ? apiProducts : fallbackProducts;
+
+    return sourceList.filter((p) => {
+      // If using fallback products without backend
+      if (apiProducts === null) {
+        if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false;
+        }
+        if (selectedCategory && p.category !== selectedCategory) {
+          return false;
+        }
+        if (selectedStyle && p.dressStyle !== selectedStyle) {
+          return false;
+        }
+        if (p.price > maxPrice) {
+          return false;
+        }
       }
-      if (selectedCategory && p.category !== selectedCategory) {
-        return false;
+
+      // Color filter check
+      if (selectedColor) {
+        const colorLower = selectedColor.toLowerCase();
+        const hasColor = p.colors && p.colors.length > 0
+          ? p.colors.some((c) => {
+              const cName = (typeof c === 'string' ? c : c.name || '').toLowerCase();
+              if (cName.includes(colorLower)) return true;
+              if (colorLower === 'blue' && (cName.includes('navy') || cName.includes('denim'))) return true;
+              if (colorLower === 'green' && cName.includes('olive')) return true;
+              if (colorLower === 'black' && cName.includes('charcoal')) return true;
+              if (colorLower === 'red' && cName.includes('maroon')) return true;
+              return false;
+            })
+          : true;
+        if (!hasColor) return false;
       }
-      if (selectedStyle && p.dressStyle !== selectedStyle) {
-        return false;
+
+      // Size filter check
+      if (selectedSize) {
+        const sizeLower = selectedSize.toLowerCase();
+        const hasSize = p.sizes && p.sizes.length > 0
+          ? p.sizes.some((s) => {
+              const sLower = s.toLowerCase();
+              return sLower === sizeLower || sLower.includes(sizeLower) || sizeLower.includes(sLower);
+            })
+          : true;
+        if (!hasSize) return false;
       }
-      if (p.price > maxPrice) {
-        return false;
-      }
-      if (selectedSize && !p.sizes.includes(selectedSize)) {
-        return false;
-      }
+
       return true;
     }).sort((a, b) => {
       if (sortBy === 'price-low') return a.price - b.price;
@@ -158,9 +194,7 @@ function ShopContent() {
       if (sortBy === 'rating') return b.rating - a.rating;
       return 0;
     });
-  }, [searchQuery, selectedCategory, selectedStyle, maxPrice, selectedSize, sortBy]);
-
-  const displayedProducts = apiProducts !== null ? apiProducts : localFilteredProducts;
+  }, [apiProducts, searchQuery, selectedCategory, selectedStyle, maxPrice, selectedColor, selectedSize, sortBy]);
 
   const FilterSidebar = (
     <div className="rounded-[20px] border border-black/10 p-6 flex flex-col gap-6 bg-white">
@@ -220,23 +254,34 @@ function ShopContent() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between font-bold text-black text-[20px]">
           <span>Colors</span>
-          <ChevronUp className="size-4" />
+          {selectedColor ? (
+            <button
+              onClick={() => setSelectedColor(null)}
+              className="text-xs font-normal text-black/50 hover:text-black transition-colors"
+            >
+              Clear ({selectedColor})
+            </button>
+          ) : (
+            <ChevronUp className="size-4" />
+          )}
         </div>
         <div className="grid grid-cols-5 gap-3">
           {COLORS.map((c) => {
             const isSelected = selectedColor === c.name;
+            const isLight = c.name === 'White' || c.name === 'Yellow';
             return (
               <button
                 key={c.name}
                 onClick={() => setSelectedColor(isSelected ? null : c.name)}
                 style={{ backgroundColor: c.hex }}
-                className={`relative size-9 rounded-full transition-transform hover:scale-110 flex items-center justify-center ${
-                  c.border ? 'border border-black/20' : ''
-                }`}
+                className={`relative size-9 rounded-full transition-all hover:scale-110 flex items-center justify-center ${
+                  isSelected ? 'ring-2 ring-offset-2 ring-black scale-105' : 'hover:opacity-90'
+                } ${c.border ? 'border border-black/20' : ''}`}
                 aria-label={c.name}
+                title={c.name}
               >
                 {isSelected && (
-                  <Check className={`size-4 ${c.name === 'White' || c.name === 'Yellow' ? 'text-black' : 'text-white'}`} />
+                  <Check className={`size-4 ${isLight ? 'text-black' : 'text-white'}`} />
                 )}
               </button>
             );
@@ -250,7 +295,16 @@ function ShopContent() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between font-bold text-black text-[20px]">
           <span>Size</span>
-          <ChevronUp className="size-4" />
+          {selectedSize ? (
+            <button
+              onClick={() => setSelectedSize('')}
+              className="text-xs font-normal text-black/50 hover:text-black transition-colors"
+            >
+              Clear ({selectedSize})
+            </button>
+          ) : (
+            <ChevronUp className="size-4" />
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {SIZES.map((size) => {
@@ -259,9 +313,9 @@ function ShopContent() {
               <button
                 key={size}
                 onClick={() => setSelectedSize(isSelected ? '' : size)}
-                className={`rounded-full px-4 py-2 text-[14px] font-medium transition-colors ${
+                className={`rounded-full px-4 py-2 text-[14px] font-medium transition-all ${
                   isSelected
-                    ? 'bg-black text-white'
+                    ? 'bg-black text-white shadow-sm scale-105'
                     : 'bg-[#F0F0F0] text-black/60 hover:bg-black/10 hover:text-black'
                 }`}
               >
@@ -339,18 +393,82 @@ function ShopContent() {
                   Showing {displayedProducts.length} Products
                 </span>
               </div>
-              {searchQuery && (
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black">
-                    Query: &ldquo;{searchQuery}&rdquo;
-                    <button
-                      onClick={() => router.push('/shop')}
-                      className="p-0.5 hover:bg-black/10 rounded-full"
-                      aria-label="Clear search"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
+              {/* Active Filter Badges */}
+              {(selectedColor || selectedSize || selectedCategory || selectedStyle || searchQuery) && (
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {selectedColor && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black">
+                      Color: {selectedColor}
+                      <button
+                        onClick={() => setSelectedColor(null)}
+                        className="p-0.5 hover:bg-black/10 rounded-full"
+                        aria-label="Clear color filter"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  )}
+                  {selectedSize && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black">
+                      Size: {selectedSize}
+                      <button
+                        onClick={() => setSelectedSize('')}
+                        className="p-0.5 hover:bg-black/10 rounded-full"
+                        aria-label="Clear size filter"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  )}
+                  {selectedCategory && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black capitalize">
+                      Category: {selectedCategory}
+                      <button
+                        onClick={() => setSelectedCategory('')}
+                        className="p-0.5 hover:bg-black/10 rounded-full"
+                        aria-label="Clear category filter"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  )}
+                  {selectedStyle && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black capitalize">
+                      Style: {selectedStyle}
+                      <button
+                        onClick={() => setSelectedStyle('')}
+                        className="p-0.5 hover:bg-black/10 rounded-full"
+                        aria-label="Clear style filter"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  )}
+                  {searchQuery && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black">
+                      Query: &ldquo;{searchQuery}&rdquo;
+                      <button
+                        onClick={() => router.push('/shop')}
+                        className="p-0.5 hover:bg-black/10 rounded-full"
+                        aria-label="Clear search"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSelectedCategory('');
+                      setSelectedStyle('');
+                      setMaxPrice(300);
+                      setSelectedColor(null);
+                      setSelectedSize('');
+                      if (searchQuery) router.push('/shop');
+                    }}
+                    className="text-xs text-red-500 hover:underline font-medium ml-1"
+                  >
+                    Reset all
+                  </button>
                 </div>
               )}
             </div>
