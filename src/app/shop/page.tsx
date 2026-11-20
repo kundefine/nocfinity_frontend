@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   ChevronRight,
   SlidersHorizontal,
@@ -61,6 +61,7 @@ const DRESS_STYLES = [
 ];
 
 function ShopContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get('category') || '';
   const initialStyle = searchParams.get('style') || '';
@@ -327,13 +328,31 @@ function ShopContent() {
         <div className="lg:col-span-3 flex flex-col gap-6">
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <h1 className="text-[28px] md:text-[32px] font-bold text-black capitalize">
-                {selectedCategory || selectedStyle || 'All Products'}
-              </h1>
-              <span className="text-[14px] text-black/60 pt-1">
-                Showing {displayedProducts.length} Products
-              </span>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-3">
+                <h1 className="text-[28px] md:text-[32px] font-bold text-black capitalize">
+                  {searchQuery
+                    ? `Results for "${searchQuery}"`
+                    : (selectedCategory || selectedStyle || 'All Products')}
+                </h1>
+                <span className="text-[14px] text-black/60 pt-1">
+                  Showing {displayedProducts.length} Products
+                </span>
+              </div>
+              {searchQuery && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/5 text-xs font-semibold text-black">
+                    Query: &ldquo;{searchQuery}&rdquo;
+                    <button
+                      onClick={() => router.push('/shop')}
+                      className="p-0.5 hover:bg-black/10 rounded-full"
+                      aria-label="Clear search"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -381,11 +400,13 @@ function ShopContent() {
               <button
                 onClick={() => {
                   setSelectedCategory('');
+                  setSelectedStyle('');
                   setMaxPrice(300);
                   setSelectedColor(null);
                   setSelectedSize('');
+                  router.push('/shop');
                 }}
-                className="mt-4 rounded-full bg-black px-6 py-2.5 text-[14px] text-white"
+                className="mt-4 rounded-full bg-black px-6 py-2.5 text-[14px] text-white hover:bg-black/80 transition-colors"
               >
                 Clear all filters
               </button>
